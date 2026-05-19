@@ -545,7 +545,16 @@ monitoreo_nagios() {
     url="http://localhost/nagios"
     echo "// Inicia el monitoreo en la URL: $url"
     if command -v xdg-open &>/dev/null; then
-        xdg-open "$url" >/dev/null 2>&1 || true
+	if [ -n "$SUDO_USER" ]; then
+	    local uid
+	    uid=$(id -u "$SUDO_USER")
+	    sudo -u "$SUDO_USER" \
+		    DISPLAY=:0 \
+		    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+		    xdg-open "$url" > /dev/null 2>&1 || true
+	else 
+	    echo "** No se detectó SUDO_USER; abre manualmente la dirección con Ctrl + Click en el enlace: $url"
+	fi
     fi
 
     echo "// Mostrando logs en tiempo real (Ctrl+C para regresar)..."
