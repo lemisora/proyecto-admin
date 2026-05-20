@@ -369,32 +369,38 @@ menu_automatizacion() {
                 echo "// Línea cron: $cron_line"
                 pausar
                 ;;
-            2)
-                if ! command -v at &>/dev/null; then
-                    echo "** 'at' no está instalado. Intentando instalar..."
-                    dnf -y install at >/dev/null 2>&1 || {
-                        echo "** Falló la instalación de 'at'. Verifica repos y conectividad."
+                2)
+                    if ! command -v at &>/dev/null; then
+                        echo "** 'at' no está instalado. Intentando instalar..."
+                        dnf -y install at >/dev/null 2>&1 || {
+                            echo "** Falló la instalación de 'at'. Verifica repos y conectividad."
+                            pausar
+                            continue
+                        }
+                    fi
+                
+                    systemctl enable --now atd >/dev/null 2>&1 || true
+                
+                    read -rp "Ingrese el comando/tarea a ejecutar (ej. /usr/bin/uptime): " tarea
+                    read -rp "Ingrese fecha y hora (YYYY-MM-DD HH:MM): " datetime
+                
+                    # Convertir al formato que at entiende: HH:MM MM/DD/YYYY
+                    at_time=$(date -d "$datetime" '+%H:%M %m/%d/%Y' 2>/dev/null)
+                    if [ -z "$at_time" ]; then
+                        echo "** Formato de fecha/hora inválido. Usa YYYY-MM-DD HH:MM"
                         pausar
                         continue
-                    }
-                fi
-
-                # Asegura que el daemon esté activo.
-                systemctl enable --now atd >/dev/null 2>&1 || true
-
-                read -rp "Ingrese el comando/tarea a ejecutar (ej. /usr/bin/uptime): " tarea
-                read -rp "Ingrese fecha y hora (YYYY-MM-DD HH:MM): " datetime
-
-                # at acepta el 'datetime' como cadena en formato amigable (depende de la distro/localidad).
-                echo "$tarea" | at "$datetime" 2>/dev/null || {
-                    echo "** No se pudo programar con at. Intenta con otro formato de fecha/hora."
+                    fi
+                
+                    output=$(echo "$tarea" | at "$at_time" 2>&1)
+                    if [ $? -ne 0 ]; then
+                        echo "** Error al programar con at: $output"
+                    else
+                        echo "// Tarea programada para: $datetime"
+                        echo "// Confirmación: $output"
+                    fi
                     pausar
-                    continue
-                }
-
-                echo "// Tarea programada en at para: $datetime"
-                pausar
-                ;;
+                    ;;
             3) return ;;
             *) echo "Opción no válida."
                pausar
